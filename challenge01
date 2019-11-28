@@ -1,0 +1,31 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+from sys import argv
+import sys
+import codecs
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def encryption(arg):
+    file_open = open(arg, "r")
+    text_file = file_open.read().replace('\n', '')
+    if len(text_file) == 0:
+        sys.exit(84)
+    text_file = codecs.decode(text_file, 'hex')
+    text_file = codecs.encode(text_file, 'base64')
+    text_file = codecs.decode(text_file, 'utf-8')
+    print(text_file.replace("\n", ""))
+
+
+if __name__ == "__main__":
+    if len(argv) != 2:
+        sys.exit(84)
+    try:
+        encryption(argv[1])
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)

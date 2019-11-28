@@ -1,0 +1,45 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+from sys import argv
+import sys
+import codecs
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def xor_for_char(input_bytes, key_input):
+    index = 0
+    output_bytes = b''
+    for byte in input_bytes:
+        if index >= len(key_input):
+            index = 0
+        output_bytes += bytes([byte ^ key_input[index]])
+        index += 1
+    return output_bytes
+
+
+def main(path):
+    file_open = open(path, "r")
+    key_string = file_open.readline()
+    if len(key_string.replace('\n', '')) == 0:
+        sys.exit(84)
+    content = file_open.read()
+    if len(content.replace('\n', '')) == 0:
+        sys.exit(84)
+    key = codecs.decode(key_string[:key_string.find("\n")], "hex")
+    plaintext = content.replace('\n', '')
+    new_text = bytearray.fromhex(plaintext).decode()
+    new_msg = xor_for_char(new_text.encode(), key).hex()
+    print(new_msg.upper())
+    file_open.close()
+
+
+if __name__ == '__main__':
+    try:
+        main(argv[1])
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+from sys import argv
+import sys
+from Crypto.Cipher import AES
+import base64
+import codecs
+
+
+def unpad(to_unpad):
+    return to_unpad[0:-to_unpad[-1]]
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+class AESDecrypt:
+    def __init__(self, key):
+        self.key = key
+
+    def decrypt(self, enc):
+        enc = base64.b64decode(enc)
+        cipher = AES.new(self.key, AES.MODE_ECB)
+        return unpad(cipher.decrypt(enc))
+
+
+def main(filepath):
+    f = open(filepath, "r")
+    if f.mode == 'r':
+        content = f.read()
+        if len(content) == 0:
+            f.close()
+            sys.exit(84)
+        key = codecs.decode(content[:content.find("\n")], "hex")
+        decryptor = AESDecrypt(key)
+        plaintext = decryptor.decrypt(content[(content.find("\n") + 1):])
+
+        print(codecs.decode(codecs.encode(plaintext, 'base64')).replace("\n", ""))
+    f.close()
+
+
+if __name__== "__main__":
+    try:
+        main(argv[1])
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)

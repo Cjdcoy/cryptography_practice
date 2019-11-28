@@ -1,0 +1,91 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+import sys
+import requests
+import codecs
+
+
+session = requests.Session()
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def pad(plaintext):
+    padding_len = 16 - (len(plaintext) % 16)
+    padding = bytes([padding_len] * padding_len)
+    return plaintext + padding
+
+
+def xor_for_char(input_bytes, key_input):
+    index = 0
+    output_bytes = b''
+    for byte in input_bytes:
+        if index >= len(key_input):
+            index = 0
+        output_bytes += bytes([byte ^ key_input[index]])
+        index += 1
+    return output_bytes
+
+
+def hack_admin(plain, enc, idx):
+    blocksize = 16
+    enc = codecs.decode(enc, 'base64')
+    block_text = pad(codecs.encode(';admin=true;'))
+    enc_blocks = [enc[i:i+blocksize] for i in range(0, len(enc), blocksize)]
+    plain_blocks = [plain[i:i+blocksize] for i in range(0, len(plain), blocksize)]
+    enc_new_block = xor_for_char(xor_for_char(block_text,
+                        codecs.encode(plain_blocks[idx+1])), enc_blocks[idx])
+    enc_blocks[idx] = enc_new_block
+    return b''.join(enc_blocks)
+
+
+sufix = len(";type=jibberjabber;")
+def get_starting_char():
+    basic_len = len(codecs.decode(session.post("http://127.0.0.1:5000/challenge13/encrypt",
+                    data='', cookies=session.cookies).content, 'base64'))
+    for i in range(0, 17):
+        data = codecs.encode(codecs.encode('A' * i), 'base64')
+        new_len = len(session.post("http://127.0.0.1:5000/challenge13/encrypt",
+                    data=data, cookies=session.cookies).content)
+        if new_len > basic_len:
+            return basic_len - i - sufix + 1
+
+
+def get_filling_string():
+    prefix_len = get_starting_char()
+    idx = (int)(len(pad(codecs.encode('A' * (prefix_len)))) / 16)
+    length = len(pad(codecs.encode('A' * (prefix_len + sufix))))
+    my_string = 'A' * (48 + length - (prefix_len + sufix))
+    return idx, my_string, prefix_len
+
+
+def main():
+    #this functions allow to find the prefix len and then determine where i'll flip my bits
+    idx, filling, prefix_len = get_filling_string()
+
+    #send the filling string to the server
+    string_tosend = codecs.encode(codecs.encode(filling), 'base64')
+    enc = session.post("http://127.0.0.1:5000/challenge13/encrypt", data=string_tosend, cookies=session.cookies)
+
+    #start the bit fliping
+    bitflip = hack_admin('A' * prefix_len + filling + ";type=jibberjabber;", enc.content, idx)
+
+    #encode in base64 then send back to server
+    bitflip = codecs.encode(bitflip, 'base64')
+    r = session.post("http://127.0.0.1:5000/challenge13/decrypt", data=bitflip, cookies=session.cookies)
+    try:
+        codecs.decode(r.content, 'base64')
+        print(codecs.decode(r.content).replace("\n", ""))
+    except Exception:
+        print(codecs.decode(codecs.encode(r.content, 'base64')).replace("\n", ""))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)

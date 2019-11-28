@@ -1,0 +1,97 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+from sys import argv
+import sys
+from Crypto.Cipher import AES
+import codecs
+import binascii
+
+
+def unpad(to_unpad):
+    return to_unpad[0:-to_unpad[-1]]
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def pad(plaintext):
+    padding_len = 16 - (len(plaintext) % 16)
+    padding = bytes([padding_len] * padding_len)
+    return plaintext + padding
+
+
+def xor_for_char(input_bytes, key_input):
+    index = 0
+    output_bytes = b''
+    for byte in input_bytes:
+        if index >= len(key_input):
+            index = 0
+        output_bytes += bytes([byte ^ key_input[index]])
+        index += 1
+    return output_bytes
+
+
+class AESCBCTool:
+    def __init__(self):
+        self.best_line = 0 #useless for now
+
+    def encrypt_CBC(self, enc, key, IV):
+        enc = codecs.encode(enc)
+        enc = pad(enc)
+        nb_blocks = (int)(len(enc) / 16)
+        cipher = AES.new(key, AES.MODE_ECB)
+        final_output = b''
+        IV = bytes(16)
+        for i in range(nb_blocks):
+            enc2 = xor_for_char(enc[i * 16:(i + 1) * 16], IV)
+            out = cipher.encrypt(enc2)
+            IV = out
+            final_output = final_output + out
+        print(codecs.decode(codecs.encode(final_output, 'base64')))
+
+    def decrypt_CBC(self, enc, key, IV):
+        nb_blocks = (int)(len(enc) / 16)
+        enc = codecs.decode(enc, 'base64')
+
+        cipher = AES.new(key, AES.MODE_ECB)
+        final_output = b''
+        out = b''
+
+        for i in range(nb_blocks):
+            enc2 = cipher.decrypt(enc[i * 16:(i + 1) * 16])
+            if i == 0:
+                out = xor_for_char(enc2, IV)
+            if i > 0:
+                out = xor_for_char(enc2, enc[(i - 1) * 16:i * 16])
+            final_output = final_output + out
+        final_output = unpad(final_output)
+        print(codecs.decode(codecs.encode(final_output, 'base64')).replace("\n", ""))
+
+
+def main(filepath):
+    f = open(filepath, "r")
+    if f.mode == 'r':
+        content = f.readlines()
+        tool = AESCBCTool()
+        line_nb = 0
+        for line_content in content:
+            line_content = line_content.replace("\n", "")
+            if line_nb == 0:
+                key = binascii.unhexlify(line_content)
+            if line_nb == 1:
+                IV = binascii.unhexlify(line_content)
+            if line_nb >= 2:
+                tool.decrypt_CBC(line_content.encode(), key, IV)
+            line_nb+=1
+    f.close()
+
+
+if __name__== "__main__":
+    try:
+        main(argv[1])
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)
+

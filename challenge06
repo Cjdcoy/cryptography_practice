@@ -1,0 +1,146 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+from sys import argv
+import binascii
+import codecs
+import sys
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+def get_chunks(x, s):
+    return [x[i:i + s] for i in range(0, len(x), s)]
+
+def single_char_xor(input_bytes, char_value):
+    output_bytes = b''
+    for byte in input_bytes:
+        output_bytes += bytes([byte ^ char_value])
+    return output_bytes
+
+frequence_char = {
+    'a': .08167, 'b': .01492, 'c': .02782, 'd': .04253,
+    'e': .12702, 'f': .02228, 'g': .02015, 'h': .06094,
+    'i': .06094, 'j': .00153, 'k': .00772, 'l': .04025,
+    'm': .02406, 'n': .06749, 'o': .07507, 'p': .01929,
+    'q': .00095, 'r': .05987, 's': .06327, 't': .09056,
+    'u': .02758, 'v': .00978, 'w': .02360, 'x': .00150,
+    'y': .01974, 'z': .00074, ' ': .13000
+}
+
+
+def new_get_common_key(input_bytes):
+    return sum([frequence_char.get(chr(byte), 0) for byte in input_bytes.lower()])
+
+def apply_etaoin_shrdlu(test_string):
+    score = 0
+    most_common = "etaoin shrdlu"
+    most_common2 = "ETAOIN SHRDLU"
+    for i in test_string:
+        if most_common.find(chr(i)) != -1 or most_common2.find(chr(i)) != -1:
+            score+=1
+    return score
+
+def single_bit_xor(ciphertext):
+    best_score = 0
+    best_key = 0
+    for key_value in range(256):
+        message = single_char_xor(ciphertext, key_value)
+        actual_score = new_get_common_key(message)
+        if best_score < actual_score:
+            best_score = actual_score
+            best_message = message
+            best_key = key_value
+    return best_key
+
+
+def xor_for_char(input_bytes, key_input):
+    index = 0
+    output_bytes = b''
+    for byte in input_bytes:
+        if index >= len(key_input):
+            index = 0
+        output_bytes += bytes([byte ^ key_input[index]])
+        index += 1
+    return output_bytes
+
+def string_to_bin (string):
+    return ' '.join(format(x, 'b') for x in bytearray(string))
+
+def hamming_distance(a, b):
+    total_score = 0
+
+    for (byte_a, byte_b) in zip(a, b):
+        current_score = bin(byte_a ^ byte_b).count('1')
+        total_score += current_score
+
+    return total_score
+
+def get_2_first_block(file, size):
+    hammingdist = []
+    while len(file) > size:
+        first_block = file[:size]
+        file = file[size:]
+        second_block = file[:size]
+        file = file[size:]
+        hammingdist.append(hamming_distance(first_block, second_block) / size)
+#    print(hammingdist)
+    return (sum(hammingdist) / len(hammingdist))
+
+def trunc_file(file, size):
+    i = 0
+    all_block = []
+    return_value = []
+    while len(file) > 0:
+        all_block.append(file[:size])
+        file = file[size:]
+    while i < len(all_block[0]):
+        j = 0
+        s = ""
+        while j < len(all_block):
+            if i < len(all_block[j]):
+                s += chr(all_block[j][i])
+            j = j + 1
+        return_value.append(s)
+        i = i + 1
+    return return_value
+
+def get_min_key(key):
+    if len(key) < 1:
+        return key
+    def find_min_key(key, s):
+        blocks = get_chunks(key, s)
+        if blocks[1:] == blocks[:-1]:
+            return blocks[0]
+        else:
+            return find_min_key(key, s + 1)
+    return find_min_key(key, 1)
+
+def main(path):
+    key_size = 0
+    best_size = 900000.0
+    file_open = open(path, "r")
+    text_file = file_open.read().replace("\n", "").replace(" ", "")
+    string_bytes = binascii.unhexlify(text_file)
+    x = 5
+    while x < 41:
+        try_key = get_2_first_block(string_bytes, x)
+        if try_key < best_size:
+            best_size = try_key
+            key_size = x
+        x = x + 1
+    alltext = trunc_file(string_bytes, key_size)
+    all_key = []
+    for line in alltext:
+        all_key.append(single_bit_xor(line.encode()))
+    all_key = get_min_key(all_key)
+    print(binascii.hexlify(bytes(all_key)).decode("utf-8").upper())
+
+
+if __name__ == '__main__':
+    try:
+        main(argv[1])
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)

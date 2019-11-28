@@ -1,0 +1,56 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+import sys
+import requests
+import codecs
+
+
+session = requests.Session()
+
+
+def unpad(to_unpad):
+    return to_unpad[0:-to_unpad[-1]]
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def cut_and_paste():
+    prefix_len = 16 - len("email=")
+    suffix_len = 16 - len("admin")
+    email1 = 'A' * prefix_len + "admin" + (chr(suffix_len) * suffix_len)
+    email2 = "j4l@gmail.com"
+
+    encrypted1 = session.post("http://127.0.0.1:5000/challenge11/new_profile",
+                      data=codecs.encode(codecs.encode(email1), "base64"),
+                                cookies=session.cookies)
+    encrypted2 = session.post("http://127.0.0.1:5000/challenge11/new_profile",
+                      data=codecs.encode(codecs.encode(email2), "base64"),
+                                cookies=session.cookies)
+
+    force1 = codecs.decode(encrypted1.content, 'base64')
+    force2 = codecs.decode(encrypted2.content, 'base64')
+    forced = force2[:32] + force1[16:32]
+    r = session.post("http://127.0.0.1:5000/challenge11/validate",
+                      data=codecs.encode(forced, 'base64'),
+                                cookies=session.cookies)
+    try:
+        codecs.decode(r.content, 'base64')
+        print(codecs.decode(r.content).replace("\n", ""))
+    except Exception:
+        print(codecs.decode(codecs.encode(r.content, 'base64')).replace("\n", ""))
+
+
+def main():
+    cut_and_paste()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)
+

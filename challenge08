@@ -1,0 +1,53 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+from sys import argv
+import sys
+import codecs
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+class AESECBFinder:
+    def __init__(self):
+        self.best_occurence = 0
+        self.best_line = 0
+
+    def finder(self, enc, line_nb):
+        nb_blocks = (int)(len(enc) / 16)
+        nb_similar_blocks = 0
+        for it1 in range(nb_blocks):
+            for it2 in range(it1 + 1, nb_blocks):
+                if enc[it1 * 16:(it1 + 1) * 16] == enc[it2 * 16:(it2 + 1) * 16]:
+                    nb_similar_blocks += 1
+        if self.best_occurence < nb_similar_blocks:
+            self.best_occurence = nb_similar_blocks
+            self.best_line = line_nb
+
+
+def main(filepath):
+    f = open(filepath, "r")
+    if f.mode == 'r':
+        content = f.readlines()
+        if len(content) == 0:
+            sys.exit(84)
+        tool = AESECBFinder()
+        line_nb = 0
+        for line_content in content:
+            line_nb += 1
+            line_content = line_content.replace("\n", "")
+            line_content = codecs.decode(line_content.encode(), 'base64')
+            line_content = codecs.encode(line_content, 'hex')
+            tool.finder(line_content, line_nb)
+        print(tool.best_line)
+    f.close()
+
+
+if __name__== "__main__":
+    try:
+        main(argv[1])
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)

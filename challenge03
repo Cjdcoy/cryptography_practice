@@ -1,0 +1,52 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+from sys import argv
+import sys
+import codecs
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def single_char_xor(input_bytes, char_value):
+    output_bytes = b''
+    for byte in input_bytes:
+        output_bytes += bytes([byte ^ char_value])
+    return output_bytes
+
+
+def apply_etaoin_shrdlu(test_string):
+    score = 0
+    most_common = "etaoin shrdlu"
+    most_common2 = "ETAOIN SHRDLU"
+    for i in test_string:
+        if most_common.find(chr(i)) != -1 or most_common2.find(chr(i)) != -1:
+            score+=1
+    return score
+
+
+def main(path):
+    file_open = open(path, "r")
+    ciphertext = codecs.decode(file_open.read().replace('\n', ''), 'hex')
+    if len(ciphertext) == 0:
+        sys.exit(84)
+    best_score = 0
+    best_key = 0
+    for key_value in range(256):
+        message = single_char_xor(ciphertext, key_value)
+        actual_score = apply_etaoin_shrdlu(message)
+        if best_score < actual_score:
+            best_score = actual_score
+            best_message = message
+            best_key = key_value
+    print("{:02X}".format(best_key))
+
+
+if __name__ == '__main__':
+    try:
+        main(argv[1])
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)

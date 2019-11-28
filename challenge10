@@ -1,0 +1,110 @@
+#!/usr/bin/env python3.6
+from __future__ import print_function
+import sys
+import requests
+import codecs
+import urllib
+import urllib.request
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def unpad(to_unpad):
+    return to_unpad[0:-to_unpad[-1]]
+
+
+def pad(plaintext):
+    padding_len = 16 - (len(plaintext) % 16)
+    padding = bytes([padding_len] * padding_len)
+    return plaintext + padding
+
+
+def xor_for_char(input_bytes, key_input):
+    index = 0
+    output_bytes = b''
+    for byte in input_bytes:
+        if index >= len(key_input):
+            index = 0
+        output_bytes += bytes([byte ^ key_input[index]])
+        index += 1
+    return output_bytes
+
+#COOKIES = {}
+#def school_encryption(data):
+#    data = codecs.encode(codecs.encode(data), 'base64')
+#    req = urllib.request.Request('http://127.0.0.1:5000/challenge10', method='POST', data=data, headers={'Content-Type': 'text/plain'})
+#    if COOKIES:
+#        req.add_header('Cookie', ';'.join(key+'='+COOKIES[key] for key in COOKIES))
+#    r = urllib.request.urlopen(req)
+#    for header in r.getheaders():
+#        if header[0] == 'Set-Cookie':
+#            cookie = header[1].split('; ')[0].split('=', 1)
+#            COOKIES[cookie[0]] = cookie[1]
+#    to_return = r.read()
+#    if len(to_return) == 0:
+#        sys.exit(84)
+#    return codecs.decode(to_return, 'base64')
+
+
+session = requests.Session()
+def school_encryption(mystring):
+    mystring = codecs.encode(codecs.encode(mystring), 'base64')
+    r = session.post("http://127.0.0.1:5000/challenge10",
+                       data=mystring, cookies=session.cookies)
+    if len(r.content) == 0:
+        sys.exit(84)
+    return codecs.decode(r.content, 'base64')
+
+
+def bruteforce_aes(length, blen):
+    i = 0
+    pos = length - 1
+    todecrypt = school_encryption("A" * (blen * length - 1))
+    found = ''
+    while i < blen * length - 1:
+        for x in range(0, 256):
+            if x == 255:
+                found = found[0:len(found) - 1]
+                return found
+            mystring = "A" * ((blen * length - 1) - i) + found + chr(x)
+            to_compare = school_encryption(mystring)
+            if to_compare[pos * blen:blen * pos + blen] == todecrypt[pos * blen:blen * pos + blen]:
+                found = found + chr(x)
+                i += 1
+                string_toencrypt = "A" * ((blen * length - 1) - i)
+                todecrypt = school_encryption(string_toencrypt)
+                break
+    return found
+
+
+def find_block_len():
+    length = len(school_encryption(""))
+    len_with_pad = length
+    pad = 0
+    while 1:
+        if len_with_pad > length:
+            return len_with_pad - length
+        len_with_pad = len(school_encryption("A" * pad))
+        pad = pad + 1
+
+def preparation_for_bruteforce():
+    blen = find_block_len()
+    length = (int)(len(school_encryption("")) / blen)
+    total_decryption = codecs.encode(bruteforce_aes(length, blen))
+    print(codecs.decode(codecs.encode(total_decryption, 'base64')).replace('\n', ''))
+
+
+def main():
+    preparation_for_bruteforce()
+
+
+if __name__== "__main__":
+    try:
+        main()
+    except Exception as e:
+        eprint(e)
+        sys.exit(84)
+    sys.exit(0)
+
